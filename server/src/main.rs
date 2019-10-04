@@ -1,37 +1,18 @@
-#![allow(dead_code)] // usful in dev mode
-///#[macro_use]
-//extern crate diesel;
-//#[macro_use]
-//extern crate serde_derive;
+#[macro_use]
+extern crate diesel;
 
-//use actix_identity::{CookieIdentityPolicy, IdentityService};
-use actix_web::{middleware, web, App, HttpServer};
+use actix_web::{web, App, HttpServer};
 use diesel::prelude::*;
-use diesel::r2d2::{self, ConnectionManager};
+use diesel::pg::PgConnection;
 
 use serde_json::{Value};
 
-mod config;
+mod schema;
 
 
 fn main() -> std::io::Result<()> {
-    //dotenv::dotenv().ok();
-    //std::env::set_var("RUST_LOG", "actix_web=info,actix_server=info");
-    //env_logger::init();
 
-    // Read config file
-    let content: String = std::fs::read_to_string("config.json")
-    .expect("Something went wrong reading config.json");
-
-    // Parse config file
-    let config: Value = serde_json::from_str(&content).expect("JSON was not well-formatted");
-
-    // create db connection pool
-    //let manager = ConnectionManager::<PgConnection>::new(config["database_url"]);
-    //let pool: models::Pool = r2d2::Pool::builder()
-        //.build(manager)
-        //.expect("Failed to create pool.");
-    //let domain: String = std::env::var("DOMAIN").unwrap_or_else(|_| "localhost".to_string());
+    let _connection = establish_connection();
 
     // Start http server
     HttpServer::new(move || {
@@ -69,4 +50,22 @@ fn main() -> std::io::Result<()> {
     })
     .bind("127.0.0.1:3000")?
     .run()
+}
+
+fn establish_connection() -> PgConnection {
+
+    // Read config file
+    let content: String = std::fs::read_to_string("config.json")
+      .expect("Something went wrong reading config.json");
+
+    // Parse config file
+    let config: Value = serde_json::from_str(&content)
+      .expect("JSON was not well-formatted");
+
+    // Remove leading and trailing double quotes
+    let db_url = config["database_url"].to_string().trim_matches('"').to_owned();
+
+    // Return PgConnection object
+    PgConnection::establish(&db_url)
+      .expect(&format!("Error connection to {}", &db_url))
 }
