@@ -1,5 +1,5 @@
 [package]
-name = "nexus-server"
+name = "nexus"
 version = "0.1.0"
 authors = ["Henrik Hedlund Andersen <heheand@gmail.com>"]
 edition = "2018"
