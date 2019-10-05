@@ -35,5 +35,15 @@ pub fn create_user(new_username: String) {
         .expect("Error creating new user");
 
     println!("Username: {}, Access Id: {}", created_user.username, created_user.access_id);
+}
 
+pub fn delete_user(del_username: String) {
+    
+    let connection = db::establish_connection();
+
+    let deleted_user = diesel::delete(users.filter(username.like(del_username)))
+        .execute(&connection)
+        .expect("Error deleting user");
+
+    println!("Deleted user: {}", deleted_user);
 }
