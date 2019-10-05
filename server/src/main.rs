@@ -19,11 +19,11 @@ fn main() -> std::io::Result<()> {
                 web::scope("/api")
                     .service(
                         web::resource("/test")
-                            .route(web::get().to(||{controllers::users::show_users()})),
+                            .route(web::get().to(||{controllers::users::show_users()}))
                     )
                     .service(
                         web::resource("/test2")
-                            .route(web::post().to(||{})),
+                            .route(web::get().to(||{controllers::users::create_user("testuser".to_owned())})),
                     )
                     .service(
                         web::resource("/test3")
