@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate diesel;
-
-use actix_web::{web, App, HttpServer};
+extern crate rand;
 
 mod controllers {
     pub mod users;
@@ -9,6 +8,10 @@ mod controllers {
 mod db;
 mod models;
 mod schema;
+
+use actix_web::{web, App, HttpServer};
+
+use crate::controllers::users::*;
 
 fn main() -> std::io::Result<()> {
 
@@ -18,17 +21,11 @@ fn main() -> std::io::Result<()> {
             .service(
                 web::scope("/api")
                     .service(
-                        web::resource("/test")
-                            .route(web::get().to(||{ controllers::users::show_users() }))
+                        web::scope("/test")
+                            .service(show_users)
+                            .service(create_user)
+                            .service(delete_user)
                     )
-                    .service(
-                        web::resource("/test2")
-                            .route(web::get().to(||{ controllers::users::create_user("testuser".to_owned()) })),
-                    )
-                    .service(
-                        web::resource("/test3")
-                            .route(web::get().to(||{ controllers::users::delete_user("testuser".to_owned()) }))
-                    ),
             )
     })
     .bind("127.0.0.1:3000")?
