@@ -1,6 +1,6 @@
 use diesel::prelude::*;
 use diesel::pg::PgConnection;
-use serde_json::{Value};
+use serde_json::Value;
 
 pub fn establish_connection() -> PgConnection {
 
