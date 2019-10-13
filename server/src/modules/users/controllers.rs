@@ -1,16 +1,17 @@
 use crate::db;
-use crate::models::{ User, NewUser };
 use crate::diesel::prelude::*;
 use crate::schema::users::dsl::*;
 
 use actix_web::{
-    get, web, HttpRequest
+    web, Responder, HttpResponse
 };
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 
-#[get("/")]
-pub fn show_users(req: HttpRequest) -> String{
+use self::super::models::*;
+
+
+pub fn show_users() -> impl Responder {
 
     let connection = db::establish_connection();
     let results = users
@@ -23,11 +24,10 @@ pub fn show_users(req: HttpRequest) -> String{
         println!("Username: {}\nAccessId: {}\nAccessSecret: {}", user.username, user.access_id, user.access_secret);
         println!("----------");
     }
-    "Done".to_owned()
+    HttpResponse::Ok()
 }
 
-#[get("/{name}")]
-pub fn create_user(req: HttpRequest, name: web::Path<String>) -> String {
+pub fn create_user(data: web::Path<String>) -> impl Responder {
 
     let connection = db::establish_connection();
 
@@ -37,10 +37,11 @@ pub fn create_user(req: HttpRequest, name: web::Path<String>) -> String {
         .collect();
 
     let new_user = NewUser {
-        username: &name,
-        password: "Test1234",
+        username: &data,
+        password: "asdasda",
         access_id: "asdf123",
-        access_secret: &gen_secret
+        access_secret: &gen_secret,
+        access_level: 0
     };
 
     let created_user: User = diesel::insert_into(users)
@@ -49,11 +50,10 @@ pub fn create_user(req: HttpRequest, name: web::Path<String>) -> String {
         .expect("Error creating new user");
 
     println!("Username: {}, Access Id: {}", created_user.username, created_user.access_id);
-    "Done".to_owned()
+    HttpResponse::Ok()
 }
 
-#[get("/del/{name}")]
-pub fn delete_user(req: HttpRequest, name: web::Path<String>) -> String {
+pub fn delete_user(name: web::Path<String>) -> impl Responder {
     
     let connection = db::establish_connection();
 
@@ -62,5 +62,5 @@ pub fn delete_user(req: HttpRequest, name: web::Path<String>) -> String {
         .expect("Error deleting user");
 
     println!("Deleted user: {}", deleted_user);
-    "Deleted".to_owned()
+    HttpResponse::Ok()
 }

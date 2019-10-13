@@ -16,5 +16,6 @@ pub struct NewUser<'a> {
     pub username: &'a str,
     pub password: &'a str,
     pub access_id: &'a str,
-    pub access_secret: &'a str
+    pub access_secret: &'a str,
+    pub access_level: i16
 }
