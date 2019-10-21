@@ -64,3 +64,14 @@ pub fn delete_user(name: web::Path<String>) -> impl Responder {
     println!("Deleted user: {}", deleted_user);
     HttpResponse::Ok()
 }
+
+pub fn get_user_by_id(db_id: &str) -> Result<User, ()> {
+    let connection = db::establish_connection();
+    let user = users
+        .filter(access_id.eq(db_id))
+        .limit(1)
+        .load::<User>(&connection)
+        .expect("Error loading users");
+
+    Ok(user[0].clone())
+}

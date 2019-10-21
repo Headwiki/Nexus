@@ -1,18 +1,21 @@
 use actix_service::{Service, Transform};
-use actix_web::error::PayloadError;
-use actix_web::{dev::ServiceRequest, dev::ServiceResponse, Error, HttpMessage};
-use bytes::BytesMut;
+use actix_web::{dev::ServiceRequest, dev::ServiceResponse, Error};
+use chrono::{Utc};
 use futures::future::{ok, FutureResult};
-use futures::stream::Stream;
 use futures::{Future, Poll};
-use std::cell::RefCell;
-use std::rc::Rc;
-use serde_json::Value;
 
+use crate::modules::users::controllers::{ get_user_by_id };
 
+// There are two steps in middleware processing.
+// 1. Middleware initialization, middleware factory gets called with
+//    next service in chain as parameter.
+// 2. Middleware's call method gets called with normal request.
 pub struct CheckHmac;
 
-impl<S: 'static, B> Transform<S> for CheckHmac
+// Middleware factory is `Transform` trait from actix-service crate
+// `S` - type of the next service
+// `B` - type of response's body
+impl<S, B> Transform<S> for CheckHmac
 where
     S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
@@ -26,21 +29,17 @@ where
     type Future = FutureResult<Self::Transform, Self::InitError>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ok(CheckHmacMiddleware {
-            service: Rc::new(RefCell::new(service)),
-        })
+        ok(CheckHmacMiddleware { service })
     }
 }
 
 pub struct CheckHmacMiddleware<S> {
-    // This is special: We need this to avoid lifetime issues.
-    service: Rc<RefCell<S>>,
+    service: S,
 }
 
 impl<S, B> Service for CheckHmacMiddleware<S>
 where
-    S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>
-        + 'static,
+    S: Service<Request = ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
     B: 'static,
 {
@@ -53,28 +52,51 @@ where
         self.service.poll_ready()
     }
 
-    fn call(&mut self, mut req: ServiceRequest) -> Self::Future {
-        let mut svc = self.service.clone();
+    fn call(&mut self, req: ServiceRequest) -> Self::Future {
+        // Get 'Authorization' data from headers
+        let auth_vec: Vec<&str> = req.headers().get("Authorization").unwrap().to_str().unwrap().split(':').collect();
 
-        Box::new(
-            req.take_payload()
-                .fold(BytesMut::new(), move |mut body, chunk| {
-                    body.extend_from_slice(&chunk);
-                    Ok::<_, PayloadError>(body)
-                })
-                .map_err(|e| e.into())
-                .and_then(move |bytes| {
-                    let mut result: Value = serde_json::from_str(std::str::from_utf8(&bytes).unwrap())
-                    .expect("JSON was not well-formatted");
+        println!("{:#?}", req.head());
+        //println!("{:#?}", auth_vec);
+        let user_secret = get_user_by_id(&auth_vec[0]).unwrap().access_secret;
+        println!("{}", construct_hmac_body(&req));
+        Box::new(self.service.call(req).and_then(|res| {
+            Ok(res)
+        }))
+    }
+}
 
-                    /* if (result["hmac"].is_empty()) {
-                        println!("Missing auth info");
-                    } else {
+/* 
+    Creates the request body which will be encrypted as hmac
 
-                    } */
-                    println!("request body: {:?}", result["hmac"].take());
-                    svc.call(req).and_then(|res| Ok(res))
-                }),
-        )
+    GET /photos/puppy.jpg HTTP/1.1
+    Host: johnsmith.s3.amazonaws.com
+    Date: Mon, 26 Mar 2007 19:37:58 +0000}
+
+    Authorization: AKIAIOSFODNN7EXAMPLE:frJIUN8DYpKDtOLCwo//yllqDzg= 
+ */
+fn construct_hmac_body(req: &ServiceRequest) -> String {
+
+    format!("{method} {uri} {version}\nHost: {host}\nTimestamp: {timestamp}", 
+        method=req.head().method.as_str(),
+        uri=&req.head().uri.to_string(),
+        version=version_to_string(req.head().version),
+        host=req.headers().get("host").unwrap().to_str().unwrap(),
+        timestamp=&Utc::now().timestamp().to_string()
+    )
+
+}
+
+fn version_to_string(ver: actix_web::http::Version) -> String {
+    if ver == actix_web::http::Version::HTTP_09 {
+        "HTTP/0.9".to_owned()
+    } else if ver == actix_web::http::Version::HTTP_10 {
+        "HTTP/1.0".to_owned()
+    } else if ver == actix_web::http::Version::HTTP_11 {
+        "HTTP/1.1".to_owned()
+    } else if ver == actix_web::http::Version::HTTP_2 {
+        "HTTP/2.0".to_owned()
+    } else {
+        "unknown".to_owned()
     }
 }
